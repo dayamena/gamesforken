@@ -1,10 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ---- Theme Toggle & Wipe ----
-    if (!localStorage.getItem('gamesForKenV6Wiped')) {
+    if (!localStorage.getItem('gamesForKenV7Wiped')) {
         localStorage.removeItem('gamesForKenProfiles');
         localStorage.removeItem('gamesForKenActiveProfile');
         localStorage.removeItem('memoryGameStats');
-        localStorage.setItem('gamesForKenV6Wiped', 'true');
+        localStorage.setItem('gamesForKenV7Wiped', 'true');
     }
 
     const themeBtn = document.getElementById('theme-toggle');
