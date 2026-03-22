@@ -1,10 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ---- Theme Toggle & Wipe ----
-    if (!localStorage.getItem('gamesForKenV5Wiped')) {
+    if (!localStorage.getItem('gamesForKenV6Wiped')) {
         localStorage.removeItem('gamesForKenProfiles');
         localStorage.removeItem('gamesForKenActiveProfile');
         localStorage.removeItem('memoryGameStats');
-        localStorage.setItem('gamesForKenV5Wiped', 'true');
+        localStorage.setItem('gamesForKenV6Wiped', 'true');
     }
 
     const themeBtn = document.getElementById('theme-toggle');
@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- Global State & Profiles ----
     let activeStored = localStorage.getItem('gamesForKenActiveProfile');
-    let currentProfile = activeStored ? JSON.parse(activeStored) : { name: "Ken", emoji: "👤" };
-    let gameSettings = JSON.parse(localStorage.getItem('gamesForKenProfiles')) || [{ name: "Ken", emoji: "👤" }];
+    let currentProfile = activeStored ? JSON.parse(activeStored) : { name: "Guest", emoji: "👤" };
+    let gameSettings = JSON.parse(localStorage.getItem('gamesForKenProfiles')) || [];
 
     // ---- Nav & Hub Logic ----
     const tabBtns = document.querySelectorAll('.tab-btn');
