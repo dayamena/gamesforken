@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ---- Global State & Profiles ----
-    let currentProfile = localStorage.getItem('gamesForKenActiveProfile') || "Ken";
-    let gameSettings = JSON.parse(localStorage.getItem('gamesForKenProfiles')) || ["Ken"];
+    let activeStored = localStorage.getItem('gamesForKenActiveProfile');
+    let currentProfile = activeStored ? JSON.parse(activeStored) : { name: "Ken", emoji: "👤" };
+    let gameSettings = JSON.parse(localStorage.getItem('gamesForKenProfiles')) || [{ name: "Ken", emoji: "👤" }];
 
     // ---- Nav & Hub Logic ----
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -16,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetSection = document.getElementById(targetId);
         targetSection.classList.remove('hidden');
         targetSection.classList.add('active');
+
+        // Fix 1: Auto-refresh Leaderboard when viewing Progress Tab
+        if (targetId === 'progress-view') {
+            updateProgressUI();
+        }
     }
 
     tabBtns.forEach(btn => {
@@ -29,31 +35,54 @@ document.addEventListener('DOMContentLoaded', () => {
     backBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             switchView(btn.getAttribute('data-target'));
-            // Keep nav highlight on 'Games'
             tabBtns.forEach(b => b.classList.remove('active'));
             document.querySelector('[data-target="hub-view"]').classList.add('active');
         });
     });
 
-    document.getElementById('btn-play-matching').addEventListener('click', () => switchView('matching-view'));
-    document.getElementById('btn-play-sudoku').addEventListener('click', () => switchView('sudoku-view'));
-    document.getElementById('btn-play-logic').addEventListener('click', () => switchView('logic-view'));
-    document.getElementById('btn-play-trivia').addEventListener('click', () => switchView('trivia-view'));
+    document.getElementById('btn-play-matching').addEventListener('click', () => {
+        initMatchingGame();
+        switchView('matching-view');
+    });
+    document.getElementById('btn-play-sudoku').addEventListener('click', () => {
+        initSudoku();
+        switchView('sudoku-view');
+    });
+    document.getElementById('btn-play-logic').addEventListener('click', () => {
+        initLogicPuzzles();
+        switchView('logic-view');
+    });
+    document.getElementById('btn-play-trivia').addEventListener('click', () => {
+        initTrivia();
+        switchView('trivia-view');
+    });
 
     // ---- Profile Logic ----
     const profileInput = document.getElementById('username-input');
     const btnAddProfile = document.getElementById('btn-add-profile');
     const profilesList = document.getElementById('active-profiles-list');
+    const emojiBtns = document.querySelectorAll('.emoji-btn');
+
+    let selectedEmoji = '👤';
+
+    emojiBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            emojiBtns.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedEmoji = btn.textContent;
+        });
+    });
 
     function renderProfiles() {
         profilesList.innerHTML = '';
-        gameSettings.forEach(name => {
+        gameSettings.forEach(profileObj => {
+            const isActive = profileObj.name === currentProfile.name;
             const div = document.createElement('div');
-            div.className = `profile-item ${name === currentProfile ? 'active-profile' : ''}`;
-            div.innerHTML = `<span>👤 ${name}</span> <span>${name === currentProfile ? '✅ Active' : ''}</span>`;
+            div.className = `profile-item ${isActive ? 'active-profile' : ''}`;
+            div.innerHTML = `<span>${profileObj.emoji} ${profileObj.name}</span> <span>${isActive ? '✅ Active' : ''}</span>`;
             div.addEventListener('click', () => {
-                currentProfile = name;
-                localStorage.setItem('gamesForKenActiveProfile', currentProfile);
+                currentProfile = profileObj;
+                localStorage.setItem('gamesForKenActiveProfile', JSON.stringify(currentProfile));
                 renderProfiles();
             });
             profilesList.appendChild(div);
@@ -62,11 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnAddProfile.addEventListener('click', () => {
         const newName = profileInput.value.trim();
-        if (newName && !gameSettings.includes(newName)) {
-            gameSettings.push(newName);
+        if (newName && !gameSettings.some(p => p.name === newName)) {
+            const newProfile = { name: newName, emoji: selectedEmoji };
+            gameSettings.push(newProfile);
             localStorage.setItem('gamesForKenProfiles', JSON.stringify(gameSettings));
-            currentProfile = newName;
-            localStorage.setItem('gamesForKenActiveProfile', currentProfile);
+            currentProfile = newProfile;
+            localStorage.setItem('gamesForKenActiveProfile', JSON.stringify(currentProfile));
             profileInput.value = '';
             renderProfiles();
         }
@@ -74,62 +104,145 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderProfiles();
 
-    // ---- Trivia Logic ----
-    const triviaData = [
-        {
-            question: "Which renowned dictionary author was instrumental in the founding of Amherst College in 1821?",
-            options: ["Samuel Johnson", "Noah Webster", "William Safire", "Peter Mark Roget"],
-            answer: 1
-        },
-        {
-            question: "Hampshire College was conceived as an experimental college. Which of the following was NOT one of its original 'Four College' co-sponsors?",
-            options: ["Yale University", "Smith College", "Mount Holyoke College", "UMass Amherst"],
-            answer: 0
-        },
-        {
-            question: "Which iconic secret society at Yale counts both George H.W. Bush and George W. Bush among its alumni?",
-            options: ["Book and Snake", "Scroll and Key", "Skull and Bones", "Wolf's Head"],
-            answer: 2
-        },
-        {
-            question: "In property law, what is the 'Rule Against Perpetuities' primarily designed to prevent?",
-            options: ["Excessive taxation", "Property interests vesting too far into the future", "Foreign ownership of land", "Eminent domain"],
-            answer: 1
-        },
-        {
-            question: "In Constitutional Law, the 'Chevron deference' traditionally established that courts should defer to what?",
-            options: ["A federal agency's interpretation of an ambiguous statute", "The President's executive orders", "State supreme court rulings", "Congressional committee reports"],
-            answer: 0
-        }
-    ];
+    // ---- Progress Tracking Logic ----
+    const totalGamesEl = document.getElementById('total-games');
+    const bestTimeEl = document.getElementById('best-time');
+    const bestMovesEl = document.getElementById('best-moves');
+    const historyListEl = document.getElementById('history-list');
 
-    let currentQuestionIndex = 0;
-    let triviaScore = 0;
-    const triviaContent = document.getElementById('trivia-content');
-
-    function renderTrivia() {
-        if (currentQuestionIndex >= triviaData.length) {
-            triviaContent.innerHTML = `
-                <h2>Quiz Complete!</h2>
-                <p class="subtitle">You scored ${triviaScore} out of ${triviaData.length}.</p>
-                <button class="primary-btn" id="restart-trivia">Restart Trivia</button>
-            `;
-            document.getElementById('restart-trivia').addEventListener('click', () => {
-                currentQuestionIndex = 0;
-                triviaScore = 0;
-                renderTrivia();
-            });
+    function updateProgressUI() {
+        let gameHistory = JSON.parse(localStorage.getItem('memoryGameStats')) || [];
+        if (gameHistory.length === 0) {
+            historyListEl.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">No games played yet. Play a game to hit the leaderboard!</p>';
             return;
         }
 
-        const q = triviaData[currentQuestionIndex];
+        totalGamesEl.textContent = gameHistory.length;
+
+        const validTimes = gameHistory.filter(h => h.time !== undefined && h.time > 0).map(h => h.time);
+        const validMoves = gameHistory.filter(h => h.moves !== undefined && h.moves > 0).map(h => h.moves);
+
+        if (validTimes.length > 0) {
+            const bestTime = Math.min(...validTimes);
+            const mins = String(Math.floor(bestTime / 60)).padStart(2, '0');
+            const secs = String(bestTime % 60).padStart(2, '0');
+            bestTimeEl.textContent = `${mins}:${secs}`;
+        }
+        
+        if (validMoves.length > 0) {
+            bestMovesEl.textContent = Math.min(...validMoves);
+        }
+
+        historyListEl.innerHTML = '';
+        const sortedHistory = [...gameHistory].sort((a, b) => b.timestamp - a.timestamp);
+        
+        sortedHistory.forEach(item => {
+            const date = new Date(item.timestamp).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            const m = String(Math.floor(item.time / 60)).padStart(2, '0');
+            const s = String(item.time % 60).padStart(2, '0');
+            
+            // Backwards compatibility for older string profiles
+            let playerStr = "👤 Ken";
+            if (item.profile) {
+                if (typeof item.profile === 'string') {
+                    playerStr = `👤 ${item.profile}`;
+                } else if (item.profile.name) {
+                    playerStr = `${item.profile.emoji} ${item.profile.name}`;
+                }
+            }
+            
+            const gameType = item.game || "Match";
+            
+            let scoreText = `Moves: ${item.moves} | Time: ${m}:${s}`;
+            if (item.time === 0 && item.moves === 0 && item.scoreText) {
+                scoreText = item.scoreText; 
+            } else if (item.time === 0 && item.moves > 0) {
+                scoreText = `Score: ${item.moves}`;
+            }
+
+            historyListEl.innerHTML += `
+                <div class="history-item">
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <span class="history-date">${date}</span>
+                        <strong style="color: var(--text-main); font-size:1.1rem;">${playerStr}</strong>
+                    </div>
+                    <span class="history-score">[${gameType}]<br>${scoreText}</span>
+                </div>
+            `;
+        });
+    }
+
+    window.saveProgress = function(moves, timeInSeconds, gameName="Match", customScoreText=null) {
+        let gameHistory = JSON.parse(localStorage.getItem('memoryGameStats')) || [];
+        gameHistory.push({
+            timestamp: Date.now(),
+            profile: currentProfile,
+            moves: moves,
+            time: timeInSeconds,
+            game: gameName,
+            scoreText: customScoreText
+        });
+        localStorage.setItem('memoryGameStats', JSON.stringify(gameHistory));
+        updateProgressUI();
+    };
+
+    updateProgressUI();
+
+
+    // ---- Trivia Logic ----
+    const triviaContent = document.getElementById('trivia-content');
+    const triviaBank = [
+        { question: "Which renowned dictionary author was instrumental in the founding of Amherst College in 1821?", options: ["Samuel Johnson", "Noah Webster", "William Safire", "Peter Mark Roget"], answer: 1 },
+        { question: "Hampshire College was conceived as an experimental college. Which of the following was NOT one of its original 'Four College' co-sponsors?", options: ["Yale University", "Smith College", "Mount Holyoke College", "UMass Amherst"], answer: 0 },
+        { question: "Which iconic secret society at Yale counts both George H.W. Bush and George W. Bush among its alumni?", options: ["Book and Snake", "Scroll and Key", "Skull and Bones", "Wolf's Head"], answer: 2 },
+        { question: "In property law, what is the 'Rule Against Perpetuities' primarily designed to prevent?", options: ["Excessive taxation", "Property interests vesting too far into the future", "Foreign ownership of land", "Eminent domain"], answer: 1 },
+        { question: "In Constitutional Law, the 'Chevron deference' traditionally established that courts should defer to what?", options: ["A federal agency's interpretation of an ambiguous statute", "The President's executive orders", "State supreme court rulings", "Congressional committee reports"], answer: 0 },
+        { question: "Which of these pairs of US Presidents both graduated from Yale Law School?", options: ["Bill Clinton & Gerald Ford", "Barack Obama & Joe Biden", "JFK & Richard Nixon", "Jimmy Carter & Ronald Reagan"], answer: 0 },
+        { question: "Amherst College is known as the 'Fairest College'. What colors represent the school?", options: ["Crimson and Gold", "Purple and White", "Blue and White", "Green and White"], answer: 1 },
+        { question: "In a civil trial, what is the standard of proof required to win a case?", options: ["Beyond a reasonable doubt", "Preponderance of the evidence", "Probable cause", "Clear and convincing certainty"], answer: 1 },
+        { question: "What is the legal doctrine preventing someone from being tried twice for the same crime?", options: ["Habeas Corpus", "Double Jeopardy", "Stare Decisis", "Res Judicata"], answer: 1 },
+        { question: "Hampshire College students do not receive letter grades. Instead, they receive:", options: ["Numeric scores out of 100", "No feedback until graduation", "Narrative evaluations", "Pass/Fail only"], answer: 2 },
+        { question: "A 'tort' in the legal world refers to:", options: ["A civil wrong causing loss or harm", "A breach of contract", "A criminal offense", "A type of sweet pastry served in court"], answer: 0 },
+        { question: "Which 19th-century poet briefly attended Mount Holyoke and lived in nearby Amherst?", options: ["Walt Whitman", "Emily Dickinson", "Robert Frost", "Henry David Thoreau"], answer: 1 },
+        { question: "The highest court in the United States, established by Article III of the Constitution, is the:", options: ["Supreme Court", "Federal Circuit Court", "Court of Appeals", "Superior Court"], answer: 0 }
+    ];
+
+    let currentTriviaSession = [];
+    let currentQuestionIndex = 0;
+    let triviaScore = 0;
+
+    function initTrivia() {
+        let shuffled = [...triviaBank].sort(() => Math.random() - 0.5);
+        currentTriviaSession = shuffled.slice(0, 5); // Pick 5 randomly
+        currentQuestionIndex = 0;
+        triviaScore = 0;
+        renderTrivia();
+    }
+
+    function renderTrivia() {
+        if (currentQuestionIndex >= currentTriviaSession.length) {
+            triviaContent.innerHTML = `
+                <h2>Quiz Complete!</h2>
+                <p class="subtitle">You scored ${triviaScore} out of ${currentTriviaSession.length}.</p>
+                <button class="primary-btn" id="restart-trivia">Play Again</button>
+            `;
+            document.getElementById('restart-trivia').addEventListener('click', initTrivia);
+            if (typeof window.saveProgress === 'function') {
+                window.saveProgress(triviaScore, 0, "Trivia", `Score: ${triviaScore}/${currentTriviaSession.length}`);
+            }
+            return;
+        }
+
+        const q = currentTriviaSession[currentQuestionIndex];
         let optionsHtml = '';
         q.options.forEach((opt, idx) => {
             optionsHtml += `<button class="trivia-option" data-idx="${idx}">${opt}</button>`;
         });
 
         triviaContent.innerHTML = `
-            <p class="trivia-question">Question ${currentQuestionIndex + 1}/${triviaData.length}:<br>${q.question}</p>
+            <p class="trivia-question">Question ${currentQuestionIndex + 1}/${currentTriviaSession.length}:<br>${q.question}</p>
             <div class="trivia-options">
                 ${optionsHtml}
             </div>
@@ -141,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedIdx = parseInt(e.target.getAttribute('data-idx'));
                 const isCorrect = selectedIdx === q.answer;
                 
-                // Feedback styles
                 optionBtns.forEach(b => {
                     b.style.pointerEvents = 'none';
                     if (parseInt(b.getAttribute('data-idx')) === q.answer) {
@@ -149,11 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                if (isCorrect) {
-                    triviaScore++;
-                } else {
-                    e.target.classList.add('wrong');
-                }
+                if (isCorrect) triviaScore++;
+                else e.target.classList.add('wrong');
 
                 setTimeout(() => {
                     currentQuestionIndex++;
@@ -163,9 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    renderTrivia();
-    
-    // ---- Memory Game Logic ----
+    // ---- Matching Game Logic ----
     const memoryGrid = document.getElementById('memory-grid');
     const movesElement = document.getElementById('moves-count');
     const timeElement = document.getElementById('time-count');
@@ -180,8 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let seconds = 0;
     let gameStarted = false;
 
-    function initGame() {
-        // Reset state
+    function initMatchingGame() {
         clearInterval(timer);
         timer = null;
         seconds = 0;
@@ -194,11 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
         timeElement.textContent = `Time: 00:00`;
         memoryGrid.innerHTML = '';
         
-        // Create deck
         deck = [...baseIcons, ...baseIcons];
         deck.sort(() => Math.random() - 0.5);
         
-        deck.forEach((icon, index) => {
+        deck.forEach((icon) => {
             const cardElement = document.createElement('div');
             cardElement.classList.add('memory-card');
             cardElement.dataset.icon = icon;
@@ -226,15 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onCardClick(e) {
         startTimer();
-        
         const clickedCard = e.currentTarget;
-        if (
-            clickedCard.classList.contains('flipped') || 
-            clickedCard.classList.contains('matched') ||
-            flippedCards.length === 2
-        ) {
-            return;
-        }
+        if (clickedCard.classList.contains('flipped') || clickedCard.classList.contains('matched') || flippedCards.length === 2) return;
         
         clickedCard.classList.add('flipped');
         flippedCards.push(clickedCard);
@@ -248,15 +346,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function checkForMatch() {
         const [card1, card2] = flippedCards;
-        const isMatch = card1.dataset.icon === card2.dataset.icon;
-        
-        if (isMatch) {
+        if (card1.dataset.icon === card2.dataset.icon) {
             setTimeout(() => {
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 matchedPairs++;
                 flippedCards = [];
-                checkWin();
+                checkMatchWin();
             }, 500);
         } else {
             setTimeout(() => {
@@ -267,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function checkWin() {
+    function checkMatchWin() {
         if (matchedPairs === baseIcons.length) {
             clearInterval(timer);
             setTimeout(() => {
@@ -279,89 +375,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    restartBtn.addEventListener('click', initGame);
-
-    // Initial load
-    initGame();
-
-    // ---- Progress Tracking Logic ----
-    const totalGamesEl = document.getElementById('total-games');
-    const bestTimeEl = document.getElementById('best-time');
-    const bestMovesEl = document.getElementById('best-moves');
-    const historyListEl = document.getElementById('history-list');
-
-    let gameHistory = JSON.parse(localStorage.getItem('memoryGameStats')) || [];
-
-    function updateProgressUI() {
-        if (gameHistory.length === 0) {
-            historyListEl.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">No games played yet. Play a matching game to hit the leaderboard!</p>';
-            return;
-        }
-
-        totalGamesEl.textContent = gameHistory.length;
-
-        const validTimes = gameHistory.filter(h => h.time !== undefined && h.time > 0).map(h => h.time);
-        const validMoves = gameHistory.filter(h => h.moves !== undefined && h.moves > 0).map(h => h.moves);
-
-        if (validTimes.length > 0) {
-            const bestTime = Math.min(...validTimes);
-            const mins = String(Math.floor(bestTime / 60)).padStart(2, '0');
-            const secs = String(bestTime % 60).padStart(2, '0');
-            bestTimeEl.textContent = `${mins}:${secs}`;
-        }
-        
-        if (validMoves.length > 0) {
-            bestMovesEl.textContent = Math.min(...validMoves);
-        }
-
-        historyListEl.innerHTML = '';
-        const sortedHistory = [...gameHistory].sort((a, b) => b.timestamp - a.timestamp);
-        
-        sortedHistory.forEach(item => {
-            const date = new Date(item.timestamp).toLocaleDateString('en-US', {
-                month: 'short', day: 'numeric'
-            });
-            const m = String(Math.floor(item.time / 60)).padStart(2, '0');
-            const s = String(item.time % 60).padStart(2, '0');
-            const player = item.profile || "Ken";
-            const gameType = item.game || "Match";
-            
-            historyListEl.innerHTML += `
-                <div class="history-item">
-                    <span class="history-date">${date} <strong style="color: var(--text-main); margin-left:10px;">👤 ${player}</strong></span>
-                    <span class="history-score">[${gameType}] Moves: ${item.moves} | Time: ${m}:${s}</span>
-                </div>
-            `;
-        });
-    }
-
-    window.saveProgress = function(moves, timeInSeconds, gameName="Match") {
-        gameHistory.push({
-            timestamp: Date.now(),
-            profile: currentProfile,
-            moves: moves,
-            time: timeInSeconds,
-            game: gameName
-        });
-        localStorage.setItem('memoryGameStats', JSON.stringify(gameHistory));
-        updateProgressUI();
-    };
-
-    updateProgressUI();
+    restartBtn.addEventListener('click', initMatchingGame);
 
     // ---- Sudoku Game Logic ----
     const sudokuGridContainer = document.getElementById('sudoku-grid');
-    const validSudoku = [
-        [5,3,4,6,7,8,9,1,2],
-        [6,7,2,1,9,5,3,4,8],
-        [1,9,8,3,4,2,5,6,7],
-        [8,5,9,7,6,1,4,2,3],
-        [4,2,6,8,5,3,7,9,1],
-        [7,1,3,9,2,4,8,5,6],
-        [9,6,1,5,3,7,2,8,4],
-        [2,8,7,4,1,9,6,3,5],
-        [3,4,5,2,8,6,1,7,9]
+    const validSudokus = [
+        [
+            [5,3,4,6,7,8,9,1,2],
+            [6,7,2,1,9,5,3,4,8],
+            [1,9,8,3,4,2,5,6,7],
+            [8,5,9,7,6,1,4,2,3],
+            [4,2,6,8,5,3,7,9,1],
+            [7,1,3,9,2,4,8,5,6],
+            [9,6,1,5,3,7,2,8,4],
+            [2,8,7,4,1,9,6,3,5],
+            [3,4,5,2,8,6,1,7,9]
+        ],
+        [
+            [2,9,5,7,4,3,8,6,1],
+            [4,3,1,8,6,5,9,2,7],
+            [8,7,6,1,9,2,5,4,3],
+            [3,8,7,4,5,9,2,1,6],
+            [6,1,2,3,8,7,4,9,5],
+            [5,4,9,2,1,6,7,3,8],
+            [7,6,3,5,2,4,1,8,9],
+            [9,2,8,6,7,1,3,5,4],
+            [1,5,4,9,3,8,6,7,2]
+        ]
     ];
+    let activeSudokuSolution = [];
     let sudokuPuzzle = [];
     let sudokuTimerInterval;
     let sudokuSeconds = 0;
@@ -370,10 +412,12 @@ document.addEventListener('DOMContentLoaded', () => {
         clearInterval(sudokuTimerInterval);
         sudokuSeconds = 0;
         sudokuGridContainer.innerHTML = '';
-        sudokuPuzzle = validSudoku.map(row => [...row]);
+        
+        activeSudokuSolution = validSudokus[Math.floor(Math.random() * validSudokus.length)];
+        sudokuPuzzle = activeSudokuSolution.map(row => [...row]);
         
         let hiddenCount = 0;
-        while(hiddenCount < 30) {
+        while(hiddenCount < 35) {
             let r = Math.floor(Math.random() * 9);
             let c = Math.floor(Math.random() * 9);
             if(sudokuPuzzle[r][c] !== '') {
@@ -383,10 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         renderSudokuGrid();
-        
-        sudokuTimerInterval = setInterval(() => {
-            sudokuSeconds++;
-        }, 1000);
+        sudokuTimerInterval = setInterval(() => { sudokuSeconds++; }, 1000);
     }
     
     function renderSudokuGrid() {
@@ -412,9 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     cell.addEventListener('input', (e) => {
                         const val = e.target.value;
-                        if(!/^[1-9]$/.test(val)) {
-                            e.target.value = '';
-                        }
+                        if(!/^[1-9]$/.test(val)) e.target.value = '';
                         checkSudokuWin();
                     });
                 }
@@ -433,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const c = index % 9;
             if(input.value === '') {
                 allFilled = false;
-            } else if (parseInt(input.value) !== validSudoku[r][c]) {
+            } else if (parseInt(input.value) !== activeSudokuSolution[r][c]) {
                 allCorrect = false;
             }
         });
@@ -443,64 +482,59 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 alert("Sudoku Solved! Excellent work.");
                 if(typeof window.saveProgress === 'function') {
-                    window.saveProgress(0, sudokuSeconds, "Sudoku");
+                    window.saveProgress(0, sudokuSeconds, "Sudoku", `Time: ${Math.floor(sudokuSeconds/60)}m ${sudokuSeconds%60}s`);
                 }
             }, 500);
         }
     }
     
-    document.getElementById('btn-play-sudoku').addEventListener('click', initSudoku);
-
     // ---- Logic Puzzle Logic ----
     const logicContent = document.getElementById('logic-content');
-    const logicPuzzles = [
-        {
-            question: "What comes next in the sequence: 2, 6, 12, 20, 30, ?",
-            options: ["40", "42", "44", "48"],
-            answer: 1
-        },
-        {
-            question: "If all ZURBS are BLORPS and some BLORPS are GLOMPS, which of the following MUST be true?",
-            options: ["All GLOMPS are ZURBS", "Some ZURBS are GLOMPS", "Some BLORPS are ZURBS", "No ZURBS are GLOMPS"],
-            answer: 2
-        },
-        {
-            question: "Which word does NOT belong with the others?",
-            options: ["Leopard", "Cougar", "Elephant", "Lion"],
-            answer: 2
-        }
+    const logicBank = [
+        { question: "What comes next in the sequence: 2, 6, 12, 20, 30, ?", options: ["40", "42", "44", "48"], answer: 1 },
+        { question: "If all ZURBS are BLORPS and some BLORPS are GLOMPS, which of the following MUST be true?", options: ["All GLOMPS are ZURBS", "Some ZURBS are GLOMPS", "Some BLORPS are ZURBS", "No ZURBS are GLOMPS"], answer: 2 },
+        { question: "Which word does NOT belong with the others?", options: ["Leopard", "Cougar", "Elephant", "Lion"], answer: 2 },
+        { question: "If a lawyer has 10 clients and drops all but 3, how many does he have left?", options: ["7", "0", "3", "10"], answer: 2 },
+        { question: "Divide 30 by half and add 10. What do you get?", options: ["25", "40", "70", "15"], answer: 2 },
+        { question: "A red house is made of red bricks. A blue house is made of blue bricks. What is a greenhouse made of?", options: ["Green Bricks", "Glass", "Wood", "Leaves"], answer: 1 },
+        { question: "Which number is next: 1, 1, 2, 3, 5, 8, ?", options: ["11", "12", "13", "14"], answer: 2 },
+        { question: "Mary's father has 5 daughters: Nana, Nene, Nini, Nono, and...", options: ["Nunu", "Mary", "Nina", "Nano"], answer: 1 },
+        { question: "What flies when it's born, lies when it's alive, and runs when it's dead?", options: ["A bird", "A snowflake", "A river", "A train"], answer: 1 }
     ];
+    let currentLogicSession = [];
     let currentLogicIndex = 0;
     let logicScore = 0;
     
     function initLogicPuzzles() {
+        let shuffled = [...logicBank].sort(() => Math.random() - 0.5);
+        currentLogicSession = shuffled.slice(0, 5); // Pick 5 randomly
         currentLogicIndex = 0;
         logicScore = 0;
         renderLogicPuzzle();
     }
     
     function renderLogicPuzzle() {
-        if(currentLogicIndex >= logicPuzzles.length) {
+        if(currentLogicIndex >= currentLogicSession.length) {
             logicContent.innerHTML = `
                 <h2>Puzzles Complete!</h2>
-                <p class="subtitle">You scored ${logicScore} out of ${logicPuzzles.length}.</p>
-                <button class="primary-btn" id="restart-logic">Restart Logic Puzzles</button>
+                <p class="subtitle">You scored ${logicScore} out of ${currentLogicSession.length}.</p>
+                <button class="primary-btn" id="restart-logic">Play Again</button>
             `;
             document.getElementById('restart-logic').addEventListener('click', initLogicPuzzles);
             if(typeof window.saveProgress === 'function') {
-                window.saveProgress(logicScore, 0, "Logic Puzzle");
+                window.saveProgress(logicScore, 0, "Logic Puzzle", `Score: ${logicScore}/${currentLogicSession.length}`);
             }
             return;
         }
         
-        const q = logicPuzzles[currentLogicIndex];
+        const q = currentLogicSession[currentLogicIndex];
         let optionsHtml = '';
         q.options.forEach((opt, idx) => {
             optionsHtml += `<button class="trivia-option" data-idx="${idx}">${opt}</button>`;
         });
         
         logicContent.innerHTML = `
-            <p class="trivia-question">Puzzle ${currentLogicIndex + 1}/${logicPuzzles.length}:<br>${q.question}</p>
+            <p class="trivia-question">Puzzle ${currentLogicIndex + 1}/${currentLogicSession.length}:<br>${q.question}</p>
             <div class="trivia-options">
                 ${optionsHtml}
             </div>
@@ -530,7 +564,4 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
-    document.getElementById('btn-play-logic').addEventListener('click', initLogicPuzzles);
-
 });

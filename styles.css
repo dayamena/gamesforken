@@ -1,12 +1,12 @@
 :root {
-    --bg-color: #fdfbf7;
-    --text-main: #2c3e50;
+    --bg-color: #f0f4ff;
+    --text-main: #2a3441;
     --text-muted: #7f8c8d;
-    --accent: #a8b8d0;
-    --accent-hover: #8fa4c2;
-    --glass-bg: rgba(255, 255, 255, 0.65);
+    --accent: #b4c5ff;
+    --accent-hover: #a1b5fa;
+    --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.4);
-    --glass-shadow: 0 8px 32px rgba(168, 184, 208, 0.15);
+    --glass-shadow: 0 8px 32px rgba(160, 175, 210, 0.2);
     --card-bg: rgba(255, 255, 255, 0.85);
     --success: #a8d5ba;
     --error: #f5b7b1;
@@ -21,8 +21,8 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: radial-gradient(circle at 15% 50%, rgba(168, 184, 208, 0.25), transparent 50%),
-                      radial-gradient(circle at 85% 30%, rgba(220, 208, 192, 0.25), transparent 50%);
+    background-image: radial-gradient(circle at 15% 50%, rgba(200, 210, 255, 0.6), transparent 50%),
+                      radial-gradient(circle at 85% 30%, rgba(230, 230, 250, 0.6), transparent 50%);
     color: var(--text-main);
     min-height: 100vh;
     overflow-x: hidden;
@@ -460,6 +460,34 @@ body {
 }
 .sudoku-cell:nth-child(3n) { margin-right: 2px; }
 .sudoku-cell:nth-child(27n) { margin-bottom: 2px; }
+
+.emoji-selector {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.emoji-btn {
+    background: transparent;
+    border: 2px solid transparent;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+.emoji-btn:hover {
+    background: var(--glass-bg);
+}
+.emoji-btn.selected {
+    border-color: var(--accent);
+    background: rgba(160, 175, 210, 0.4);
+}
 
 @media (max-width: 600px) {
     .memory-grid {
