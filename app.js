@@ -1,4 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // ---- Theme Toggle & Wipe ----
+    if (!localStorage.getItem('gamesForKenV5Wiped')) {
+        localStorage.removeItem('gamesForKenProfiles');
+        localStorage.removeItem('gamesForKenActiveProfile');
+        localStorage.removeItem('memoryGameStats');
+        localStorage.setItem('gamesForKenV5Wiped', 'true');
+    }
+
+    const themeBtn = document.getElementById('theme-toggle');
+    if (localStorage.getItem('gamesForKenTheme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeBtn.textContent = '☀️';
+    }
+
+    themeBtn.addEventListener('click', () => {
+        if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('gamesForKenTheme', 'light');
+            themeBtn.textContent = '🌙';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('gamesForKenTheme', 'dark');
+            themeBtn.textContent = '☀️';
+        }
+    });
+
     // ---- Global State & Profiles ----
     let activeStored = localStorage.getItem('gamesForKenActiveProfile');
     let currentProfile = activeStored ? JSON.parse(activeStored) : { name: "Ken", emoji: "👤" };

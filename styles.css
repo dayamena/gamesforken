@@ -1,15 +1,35 @@
 :root {
-    --bg-color: #f0f4ff;
-    --text-main: #2a3441;
-    --text-muted: #7f8c8d;
-    --accent: #b4c5ff;
-    --accent-hover: #a1b5fa;
+    /* Light Mode (Pastel Purple/Blue) */
+    --bg-color: #eef2fa;
+    --text-main: #2c3e50;
+    --text-muted: #6b7280;
+    --accent: #a3b8ee;
+    --accent-hover: #8ba6e8;
     --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.4);
-    --glass-shadow: 0 8px 32px rgba(160, 175, 210, 0.2);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 8px 32px rgba(160, 175, 210, 0.3);
     --card-bg: rgba(255, 255, 255, 0.85);
     --success: #a8d5ba;
     --error: #f5b7b1;
+    --gradient-1: rgba(170, 190, 245, 0.6);
+    --gradient-2: rgba(210, 190, 240, 0.6);
+}
+
+[data-theme="dark"] {
+    /* Dark Mode (Deep Navy & Rich Violet) */
+    --bg-color: #1a1b26;
+    --text-main: #e2e8f0;
+    --text-muted: #9ca3af;
+    --accent: #8b5cf6;
+    --accent-hover: #9d4edd;
+    --glass-bg: rgba(30, 30, 40, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --card-bg: rgba(40, 40, 50, 0.85);
+    --success: #4ade80;
+    --error: #f87171;
+    --gradient-1: rgba(139, 92, 246, 0.2);
+    --gradient-2: rgba(59, 130, 246, 0.2);
 }
 
 * {
@@ -21,9 +41,10 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: radial-gradient(circle at 15% 50%, rgba(200, 210, 255, 0.6), transparent 50%),
-                      radial-gradient(circle at 85% 30%, rgba(230, 230, 250, 0.6), transparent 50%);
+    background-image: radial-gradient(circle at 15% 50%, var(--gradient-1), transparent 50%),
+                      radial-gradient(circle at 85% 30%, var(--gradient-2), transparent 50%);
     color: var(--text-main);
+    transition: background-color 0.4s ease, color 0.4s ease;
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
@@ -487,6 +508,17 @@ body {
 .emoji-btn.selected {
     border-color: var(--accent);
     background: rgba(160, 175, 210, 0.4);
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.icon-btn:hover {
+    transform: scale(1.1);
 }
 
 @media (max-width: 600px) {
